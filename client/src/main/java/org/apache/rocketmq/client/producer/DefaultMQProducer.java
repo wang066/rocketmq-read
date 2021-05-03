@@ -16,12 +16,6 @@
  */
 package org.apache.rocketmq.client.producer;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import org.apache.rocketmq.client.ClientConfig;
 import org.apache.rocketmq.client.QueryResult;
 import org.apache.rocketmq.client.Validators;
@@ -29,16 +23,14 @@ import org.apache.rocketmq.client.exception.MQBrokerException;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.impl.producer.DefaultMQProducerImpl;
 import org.apache.rocketmq.common.MixAll;
-import org.apache.rocketmq.common.message.Message;
-import org.apache.rocketmq.common.message.MessageBatch;
-import org.apache.rocketmq.common.message.MessageClientIDSetter;
-import org.apache.rocketmq.common.message.MessageDecoder;
-import org.apache.rocketmq.common.message.MessageExt;
-import org.apache.rocketmq.common.message.MessageId;
-import org.apache.rocketmq.common.message.MessageQueue;
+import org.apache.rocketmq.common.message.*;
 import org.apache.rocketmq.remoting.RPCHook;
 import org.apache.rocketmq.remoting.exception.RemotingException;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 /**
  * This class is the entry point for applications intending to send messages.
@@ -79,6 +71,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
      * For non-transactional messages, it does not matter as long as it's unique per process.
      * 生产者组概念上聚合了完全相同角色的所有生产者实例，特别是
      * 当涉及事务性消息时很重要。
+     * 消息服务器在回查状态时，会随机选择该组中任何一个生产者发起事务回调
      * </p>
      *
      * See {@linktourl http://rocketmq.apache.org/docs/core-concept/} for more discussion.
