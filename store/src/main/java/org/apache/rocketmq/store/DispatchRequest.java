@@ -76,7 +76,7 @@ public class DispatchRequest {
      */
     private final Map<String, String> propertiesMap;
     /**
-     * bitmap
+     * bitmap 位图
      */
     private byte[] bitMap;
 

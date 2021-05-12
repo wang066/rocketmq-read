@@ -16,16 +16,13 @@
  */
 package org.apache.rocketmq.client.impl.consumer;
 
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.client.impl.factory.MQClientInstance;
 import org.apache.rocketmq.client.log.ClientLogger;
 import org.apache.rocketmq.common.ServiceThread;
-import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.common.utils.ThreadUtils;
+import org.apache.rocketmq.logging.InternalLogger;
+
+import java.util.concurrent.*;
 
 /**
  * 拉取消息的线程
@@ -113,6 +110,7 @@ public class PullMessageService extends ServiceThread {
         if (consumer != null) {
             DefaultMQPushConsumerImpl impl = (DefaultMQPushConsumerImpl) consumer;
             //拉取请求
+            //一个是在 RocketMQ 根据 pull quest 拉取任务执行完一次消息拉取任务后，又将 PullRequest 对象放入到 pullRequestQueue ，第二个是Rebalanccelmpl 中创建
             impl.pullMessage(pullRequest);
         } else {
             log.warn("No matched consumer for the PullRequest {}, drop it", pullRequest);

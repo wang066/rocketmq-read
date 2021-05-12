@@ -16,13 +16,14 @@
  */
 package org.apache.rocketmq.store;
 
-import java.io.File;
-import java.nio.ByteBuffer;
-import java.util.List;
 import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.store.config.StorePathConfigHelper;
+
+import java.io.File;
+import java.nio.ByteBuffer;
+import java.util.List;
 
 /**
  * 消费队列
@@ -33,7 +34,7 @@ public class ConsumeQueue {
     /**
      * 前文提到每个条目固定20个字节
      * 存储的每个条目都是固定的20个字节
-     * commitlogoffset:8个字节，size:消息长度，四个字节。 tagshashcode:8个字节，总计20个自己
+     * commitlogoffset:8个字节，size:消息长度，四个字节。 tagshashcode:8个字节，总计20个字节
      */
     public static final int CQ_STORE_UNIT_SIZE = 20;
     private static final InternalLogger LOG_ERROR = InternalLoggerFactory.getLogger(LoggerName.STORE_ERROR_LOGGER_NAME);

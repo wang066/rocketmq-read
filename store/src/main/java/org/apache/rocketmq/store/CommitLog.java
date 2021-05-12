@@ -1172,8 +1172,11 @@ public class CommitLog {
      * @author ;
      */
     public static class GroupCommitRequest {
+        //刷盘点偏移量
         private final long nextOffset;
+        //倒计数锁存器
         private final CountDownLatch countDownLatch = new CountDownLatch(1);
+        // 刷盘结果
         private volatile boolean flushOK = false;
 
         public GroupCommitRequest(long nextOffset) {
@@ -1205,7 +1208,9 @@ public class CommitLog {
      * 同步刷盘定时线程
      */
     class GroupCommitService extends FlushCommitLogService {
+        //同步刷盘任务暂存容器
         private volatile List<GroupCommitRequest> requestsWrite = new ArrayList<GroupCommitRequest>();
+        //GroupCommitService 线程每次处理的 request 容器，这是 个设计亮点 ，避免了任务提交与任务执行的锁冲突
         private volatile List<GroupCommitRequest> requestsRead = new ArrayList<GroupCommitRequest>();
 
         public synchronized void putRequest(final GroupCommitRequest request) {

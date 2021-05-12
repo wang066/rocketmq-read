@@ -18,15 +18,16 @@ package org.apache.rocketmq.store;
 
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
-import java.nio.ByteBuffer;
-import java.util.Deque;
-import java.util.concurrent.ConcurrentLinkedDeque;
 import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.store.config.MessageStoreConfig;
 import org.apache.rocketmq.store.util.LibC;
 import sun.nio.ch.DirectBuffer;
+
+import java.nio.ByteBuffer;
+import java.util.Deque;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 /**
  * 短暂的存储池
@@ -60,6 +61,8 @@ import sun.nio.ch.DirectBuffer;
  * 但存在堆外内存(DirectByteBuffer)中但还未提交到PageCache中的这部分消息，将
  * 会丢失。但通常情况下，RocketMQ进程退出的可能性不大。
  * @author ;
+ *
+ * 将当前堆外内存一直锁定在内存中，避免被进程将内存交换到磁盘
  */
 public class TransientStorePool {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);

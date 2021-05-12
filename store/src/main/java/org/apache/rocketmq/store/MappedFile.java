@@ -18,6 +18,16 @@ package org.apache.rocketmq.store;
 
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
+import org.apache.rocketmq.common.UtilAll;
+import org.apache.rocketmq.common.constant.LoggerName;
+import org.apache.rocketmq.common.message.MessageExt;
+import org.apache.rocketmq.common.message.MessageExtBatch;
+import org.apache.rocketmq.logging.InternalLogger;
+import org.apache.rocketmq.logging.InternalLoggerFactory;
+import org.apache.rocketmq.store.config.FlushDiskType;
+import org.apache.rocketmq.store.util.LibC;
+import sun.nio.ch.DirectBuffer;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -31,15 +41,6 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.rocketmq.common.UtilAll;
-import org.apache.rocketmq.common.constant.LoggerName;
-import org.apache.rocketmq.logging.InternalLogger;
-import org.apache.rocketmq.logging.InternalLoggerFactory;
-import org.apache.rocketmq.common.message.MessageExt;
-import org.apache.rocketmq.common.message.MessageExtBatch;
-import org.apache.rocketmq.store.config.FlushDiskType;
-import org.apache.rocketmq.store.util.LibC;
-import sun.nio.ch.DirectBuffer;
 
 /**
  * MappedFile
@@ -90,7 +91,10 @@ public class MappedFile extends ReferenceResource {
      */
     protected ByteBuffer writeBuffer = null;
     /**
-     * TransientStorePool瞬时存储池
+     * TransientStorePool瞬时存储池 堆内存池transactionStorePoolEnable=true启用
+     * 根据是否开启 transientStorePoo!Enable 存在两种初始化情况 。 transientStorePoolEnable
+     * 为 true 表示内容先存储在堆外内存，然后通过 Commit 线程将数据提交到内存映射 B uffer
+     * 中，再通过 Flush 线程将内存映射 Buffer 中的数据持久化到磁盘中 。
      */
     protected TransientStorePool transientStorePool = null;
     /**
