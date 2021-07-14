@@ -16,16 +16,24 @@
  */
 package org.apache.rocketmq.client.consumer.rebalance;
 
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.rocketmq.client.consumer.AllocateMessageQueueStrategy;
 import org.apache.rocketmq.client.log.ClientLogger;
-import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.common.message.MessageQueue;
+import org.apache.rocketmq.logging.InternalLogger;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
+ * 默认负载均衡
  * Average Hashing queue algorithm
  * 平均哈希队列的负载均衡算法。每个cid平均固定的队列
+ *
+ * consumer在运行时，通过两种机制来触发Rebalance：
+ *
+ * 监听broker 消费者数量变化通知，触发rebalance
+ *
+ * 周期性触发rebalance，避免Broker的Rebalance通知丢失。
  * @author ;
  */
 public class AllocateMessageQueueAveragely implements AllocateMessageQueueStrategy {

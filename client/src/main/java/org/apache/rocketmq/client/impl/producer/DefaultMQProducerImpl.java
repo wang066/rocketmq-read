@@ -882,7 +882,9 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         }
 
         SendMessageContext context = null;
+
         if (brokerAddr != null) {
+            //判断是否开启了VIP通道
             //找到vip的地址
             brokerAddr = MixAll.brokerVIPChannel(this.defaultMQProducer.isSendMessageWithVIPChannel(), brokerAddr);
 

@@ -16,12 +16,13 @@
  */
 package org.apache.rocketmq.store;
 
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.Set;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.common.message.MessageExtBatch;
 import org.apache.rocketmq.store.stats.BrokerStatsManager;
+
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.Set;
 
 /**
  * This class defines contracting interfaces to implement, allowing third-party vendor to use customized message store.
@@ -95,7 +96,7 @@ public interface MessageStore {
      * @param topic Topic name.
      * @param queueId Queue ID.
      * @return Maximum offset at present.
-     * 获取某个topic的队列id的最大的topic
+     * 获取某个topic的队列id的最大的offset
      */
     long getMaxOffsetInQueue(final String topic, final int queueId);
 

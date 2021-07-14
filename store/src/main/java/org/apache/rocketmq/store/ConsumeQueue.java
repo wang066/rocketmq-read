@@ -26,6 +26,8 @@ import java.nio.ByteBuffer;
 import java.util.List;
 
 /**
+ * topic/queue/file三层组织结构，每个topic下的每个queue都有一个对应的consumeQueue文件
+ * 具体存储路径为：$HOME/store/consumequeue/{topic}/{queueId}/{fileName}
  * 消费队列
  * @author ;
  */

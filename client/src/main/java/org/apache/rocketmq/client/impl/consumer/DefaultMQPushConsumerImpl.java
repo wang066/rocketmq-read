@@ -247,7 +247,24 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
 
     //=================end
 
+
+    //PullRequest这里说明一下，上面我们已经提了一下rocketmq的push模式其实是通过pull模式封装实现的，pullrequest这里是通过长轮询的方式达到push效果。长轮询方式既有pull的优点又有push模式的实时性有点。
+    // push方式是server端接收到消息后，主动把消息推送给client端，实时性高。弊端是server端工作量大，影响性能，其次是client端处理能力不同且client端的状态不受server端的控制，如果client端不能及时处理消息容易导致消息堆积已经影响正常业务等。
+    // pull方式是client循环从server端拉取消息，主动权在client端，自己处理完一个消息再去拉取下一个，缺点是循环的时间不好设定，时间太短容易忙等，浪费CPU资源，时间间隔太长client的处理能力会下降，有时候有些消息会处理不及时。
+    // 长轮询的方式可以结合两者优点
+    // 1、检查PullRequest对象中的ProcessQueue对象的dropped是否为true（在RebalanceService线程中为topic下的MessageQueue创建拉取消息请求时要维护对应的ProcessQueue对象，若Consumer不再订阅该topic则会将该对象的dropped置为true）；若是则认为该请求是已经取消的，则直接跳出该方法；
+    // 2、更新PullRequest对象中的ProcessQueue对象的时间戳（ProcessQueue.lastPullTimestamp）为当前时间戳；
+    // 3、检查该Consumer是否运行中，即DefaultMQPushConsumerImpl.serviceState是否为RUNNING;若不是运行状态或者是暂停状态（DefaultMQPushConsumerImpl.pause=true），则调用PullMessageService.executePullRequestLater(PullRequest pullRequest, long timeDelay)方法延迟再拉取消息，其中timeDelay=3000；该方法的目的是在3秒之后再次将该PullRequest对象放入PullMessageService. pullRequestQueue队列中；并跳出该方法；
+    // 4、进行流控。若ProcessQueue对象的msgCount大于了消费端的流控阈值（DefaultMQPushConsumer.pullThresholdForQueue，默认值为1000），则调用PullMessageService.executePullRequestLater方法，在50毫秒之后重新该PullRequest请求放入PullMessageService.pullRequestQueue队列中；并跳出该方法；
+    // 5、若不是顺序消费（即DefaultMQPushConsumerImpl.consumeOrderly等于false），则检查ProcessQueue对象的msgTreeMap:TreeMap<Long,MessageExt>变量的第一个key值与最后一个key值之间的差额，该key值表示查询的队列偏移量queueoffset；若差额大于阈值（由DefaultMQPushConsumer. consumeConcurrentlyMaxSpan指定，默认是2000），则调用PullMessageService.executePullRequestLater方法，在50毫秒之后重新将该PullRequest请求放入PullMessageService.pullRequestQueue队列中；并跳出该方法；
+    // 6、以PullRequest.messageQueue对象的topic值为参数从RebalanceImpl.subscriptionInner: ConcurrentHashMap, SubscriptionData>中获取对应的SubscriptionData对象，若该对象为null，考虑到并发的关系，调用executePullRequestLater方法，稍后重试；并跳出该方法；
+    // 7、若消息模型为集群模式（RebalanceImpl.messageModel等于CLUSTERING），则以PullRequest对象的MessageQueue变量值、type =READ_FROM_MEMORY（从内存中获取消费进度offset值）为参数调用DefaultMQPushConsumerImpl. offsetStore对象（初始化为RemoteBrokerOffsetStore对象）的readOffset(MessageQueue mq, ReadOffsetType type)方法从本地内存中获取消费进度offset值。若该offset值大于0 则置临时变量commitOffsetEnable等于true否则为false；该offset值作为pullKernelImpl方法中的commitOffset参数，在Broker端拉取消息之后根据commitOffsetEnable参数值决定是否用该offset更新消息进度。该readOffset方法的逻辑是：以入参MessageQueue对象从RemoteBrokerOffsetStore.offsetTable:ConcurrentHashMap <MessageQueue,AtomicLong>变量中获取消费进度偏移量；若该偏移量不为null则返回该值，否则返回-1；
+    // 8、当每次拉取消息之后需要更新订阅关系（由DefaultMQPushConsumer. postSubscriptionWhenPull参数表示，默认为false）并且以topic值参数从RebalanceImpl.subscriptionInner获取的SubscriptionData对象的classFilterMode等于false（默认为false），则将sysFlag标记的第3个字节置为1，否则该字节置为0；
+    // 9、该sysFlag标记的第1个字节置为commitOffsetEnable的值；第2个字节（suspend标记）置为1；第4个字节置为classFilterMode的值；
+    // 10、 初始化匿名内部类PullCallback，实现了onSucess/onException方法； 该方法只有在异步请求的情况下才会回调；
+    // 11、调用底层的拉取消息API接口：PullAPIWrapper.pullKernelImpl(MessageQueue mq, String subExpression, long subVersion,long offset, int maxNums, int sysFlag,long commitOffset,long brokerSuspendMaxTimeMillis, long timeoutMillis, CommunicationMode communicationMode, PullCallback pullCallback)方法进行消息拉取操作。将回调类PullCallback传入该方法中，当采用异步方式拉取消息时，在收到响应之后会回调该回调类的方法。
     /**
+     *
      * 被定时任务调度的PullRequest
      * @param pullRequest ;
      */

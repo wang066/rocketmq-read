@@ -16,13 +16,6 @@
  */
 package org.apache.rocketmq.client.impl.consumer;
 
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicLong;
 import org.apache.rocketmq.client.consumer.PullCallback;
 import org.apache.rocketmq.client.consumer.PullResult;
 import org.apache.rocketmq.client.consumer.PullStatus;
@@ -37,17 +30,21 @@ import org.apache.rocketmq.client.log.ClientLogger;
 import org.apache.rocketmq.common.MQVersion;
 import org.apache.rocketmq.common.MixAll;
 import org.apache.rocketmq.common.filter.ExpressionType;
-import org.apache.rocketmq.logging.InternalLogger;
-import org.apache.rocketmq.common.message.MessageAccessor;
-import org.apache.rocketmq.common.message.MessageConst;
-import org.apache.rocketmq.common.message.MessageDecoder;
-import org.apache.rocketmq.common.message.MessageExt;
-import org.apache.rocketmq.common.message.MessageQueue;
+import org.apache.rocketmq.common.message.*;
 import org.apache.rocketmq.common.protocol.header.PullMessageRequestHeader;
 import org.apache.rocketmq.common.protocol.heartbeat.SubscriptionData;
 import org.apache.rocketmq.common.protocol.route.TopicRouteData;
 import org.apache.rocketmq.common.sysflag.PullSysFlag;
+import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.remoting.exception.RemotingException;
+
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 拉取消息的APIWrapper包装器
@@ -187,6 +184,7 @@ public class PullAPIWrapper {
 
     /**
      * 拉取消息
+     *
      * @param mq ;
      * @param subExpression ;
      * @param expressionType ;
@@ -219,12 +217,15 @@ public class PullAPIWrapper {
         final CommunicationMode communicationMode,
         final PullCallback pullCallback
     ) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+        // 1、获取Broker的ID。以入参MessageQueue对象为参数调用PullAPIWrapper.recalculatePullFromWhichNode(MessageQueue mq)方法，在该方法中，先判断PullAPIWrapper.connectBrokerByUser变量是否为true（在FiltersrvController中启动时会设置为true，默认为false），若是则直接返回0（主用Broker的brokerId）；否则以MessageQueue对象为参数从PullAPIWrapper.pullFromWhichNodeTable:ConcurrentHashMap<MessageQueue, AtomicLong获取brokerId，若该值不为null则返回该值，否则返回0（主用Broker的brokerId）；
 
+        // 2调用MQClientInstance.findBrokerAddressInSubscribe(String brokerName ,long brokerId,boolean onlyThisBroker) 方法查找Broker地址，其中onlyThisBroker=false，表示若指定的brokerId未获取到地址则获取其他BrokerId的地址也行。在该方法中根据brokerName和brokerId参数从MQClientInstance.brokerAddrTable: ConcurrentHashMap<, HashMap变量中获取对应的Broker地址，若获取不到则从brokerName下面的Map列表中找其他地址返回即可；
         FindBrokerResult findBrokerResult =
             this.mQClientFactory.findBrokerAddressInSubscribe(mq.getBrokerName(),
                 this.recalculatePullFromWhichNode(mq), false);
 
         if (null == findBrokerResult) {
+            //   3、若在上一步未获取到Broker地址，则以topic参数调用MQClientInstance.updateTopicRouteInfoFromNameServer(String topic)方法，然后在执行第2步的操作，直到获取到Broker地址为止；
             this.mQClientFactory.updateTopicRouteInfoFromNameServer(mq.getTopic());
             findBrokerResult =
                 this.mQClientFactory.findBrokerAddressInSubscribe(mq.getBrokerName(),
@@ -241,7 +242,7 @@ public class PullAPIWrapper {
                 }
             }
             int sysFlagInner = sysFlag;
-
+            // 4、若获取的Broker地址是备用Broker，则将标记位sysFlag的第1个字节置为0，即在消费完之后不提交消费进度；
             if (findBrokerResult.isSlave()) {
                 sysFlagInner = PullSysFlag.clearCommitOffsetFlag(sysFlagInner);
             }
@@ -260,12 +261,17 @@ public class PullAPIWrapper {
             requestHeader.setExpressionType(expressionType);
 
             String brokerAddr = findBrokerResult.getBrokerAddr();
+            // 5、检查标记位sysFlag的第4个字节（即SubscriptionData. classFilterMode）是否为1；若等于1，则调用PullAPIWrapper.computPullFromWhichFilterServer(String topic, String brokerAddr)方法获取Filter服务器地址。大致逻辑如下：
+            // 5.1)根据topic参数值从MQClientInstance.topicRouteTable: ConcurrentHashMapTopicRouteData>变量中获取TopicRouteData对象，
+            // 5.2)以Broker地址为参数从该TopicRouteData对象的filterServerTable:HashMap变量中获取该Broker下面的所有Filter服务器地址列表；
+            // 5.3)若该地址列表不为空，则随机选择一个Filter服务器地址返回；否则向调用层抛出异常，该pullKernelImpl方法结束；
             if (PullSysFlag.hasClassFilterFlag(sysFlagInner)) {
                 brokerAddr = computPullFromWhichFilterServer(mq.getTopic(), brokerAddr);
             }
 
             /*
              * 拉取消息
+             * 6、构建PullMessageRequestHeader对象，其中queueOffset变量值等于入参offset；
              */
             PullResult pullResult = this.mQClientFactory.getMQClientAPIImpl().pullMessage(
                 brokerAddr,

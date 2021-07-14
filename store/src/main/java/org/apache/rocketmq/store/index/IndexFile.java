@@ -16,16 +16,17 @@
  */
 package org.apache.rocketmq.store.index;
 
+import org.apache.rocketmq.common.constant.LoggerName;
+import org.apache.rocketmq.logging.InternalLogger;
+import org.apache.rocketmq.logging.InternalLoggerFactory;
+import org.apache.rocketmq.store.MappedFile;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.util.List;
-import org.apache.rocketmq.common.constant.LoggerName;
-import org.apache.rocketmq.logging.InternalLogger;
-import org.apache.rocketmq.logging.InternalLoggerFactory;
-import org.apache.rocketmq.store.MappedFile;
 
 /**
  * 索引文件
@@ -141,6 +142,35 @@ public class IndexFile {
     public boolean destroy(final long intervalForcibly) {
         return this.mappedFile.destroy(intervalForcibly);
     }
+
+    /**
+     * @https://blog.csdn.net/Dopamy_BusyMonkey/article/details/91348648
+     *
+     * Index Header：
+     *
+     * beginTimestamp：该索引文件的第一个消息(Message)的存储时间(落盘时间)  物理位置(pos: 0-7) 8bytes
+     * endTimestamp：该索引文件的最后一个消息(Message)的存储时间(落盘时间)  物理位置(pos: 8-15) 8bytes
+     * beginPhyoffset：该索引文件第一个消息(Message)的在CommitLog(消息存储文件)的物理位置偏移量(可以通过该物理偏移直接获取到该消息) 物理位置(pos: 16-23) 8bytes
+     * beginPhyoffset：该索引文件最后一个消息(Message)的在CommitLog(消息存储文件)的物理位置偏移量 (pos: 24-31) 8bytes
+     * hashSlotCount：该索引文件目前的hash slot的个数 (pos: 32-35) 4bytes
+     * indexCount：该索引文件目前的索引个数 (pos: 36-39) 4bytes
+     * Slot：
+     *
+     * slot每个节点保存当前已经拥有多少个index数据了
+     * Index List：
+     *
+     * key hash value：message key的hash值
+     * phyOffset：message在CommitLog的物理文件地址, 可以直接查询到该消息(索引的核心机制)
+     * timeDiff：message的落盘时间与header里的beginTimestamp的差值（为了节省存储空间，如果直接存message的落盘时间就得8bytes）
+     * prevIndex：hash冲突处理的关键之处, 相同hash值上一个消息索引的index（如果当前消息索引是该hash值的第一个索引，则prevIndex=0, 也是消息索引查找时的停止条件。）每个slot位置的第一个消息的prevIndex就是0的
+     *
+     *参考selectPhyOffset
+     * num value
+     * slot 1  4  msg1{slot=0},msg1{slot=1},msg=4{slot=2}
+     *
+     * slot 2  3  msg3{slot=2}
+     */
+
 
     /**
      * 添加信息
@@ -306,6 +336,7 @@ public class IndexFile {
                             break;
                         }
 
+                        //
                         int absIndexPos =
                             IndexHeader.INDEX_HEADER_SIZE + this.hashSlotNum * hashSlotSize
                                 + nextIndexToRead * indexSize;
