@@ -406,6 +406,7 @@ public class CommitLog {
                 }
 
                 // Timing message processing
+                //如果消息需要投递到延迟主题SCHEDULE_TOPIC_XXX中
                 {
                     String t = propertiesMap.get(MessageConst.PROPERTY_DELAY_TIME_LEVEL);
                     if (ScheduleMessageService.SCHEDULE_TOPIC.equals(topic) && t != null) {
@@ -415,7 +416,7 @@ public class CommitLog {
                             delayLevel = this.defaultMessageStore.getScheduleMessageService().getMaxDelayLevel();
                         }
 
-                        //计算延迟时间
+                        //如果延迟级别大于0，计算目标投递时间，并将其当做tag哈希值
                         if (delayLevel > 0) {
                             tagsCode = this.defaultMessageStore.getScheduleMessageService().computeDeliverTimestamp(delayLevel,
                                 storeTimestamp);
@@ -661,7 +662,7 @@ public class CommitLog {
                 if (msg.getDelayTimeLevel() > this.defaultMessageStore.getScheduleMessageService().getMaxDelayLevel()) {
                     msg.setDelayTimeLevel(this.defaultMessageStore.getScheduleMessageService().getMaxDelayLevel());
                 }
-
+                //修改Topic的投递目标为内部主题SCHEDULE_TOPIC_XXXX
                 topic = ScheduleMessageService.SCHEDULE_TOPIC;
                 queueId = ScheduleMessageService.delayLevel2QueueId(msg.getDelayTimeLevel());
 

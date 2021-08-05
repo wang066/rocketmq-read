@@ -16,32 +16,23 @@
  */
 package org.apache.rocketmq.store.schedule;
 
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import org.apache.rocketmq.common.ConfigManager;
 import org.apache.rocketmq.common.TopicFilterType;
 import org.apache.rocketmq.common.constant.LoggerName;
-import org.apache.rocketmq.logging.InternalLogger;
-import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.common.message.MessageAccessor;
 import org.apache.rocketmq.common.message.MessageConst;
 import org.apache.rocketmq.common.message.MessageDecoder;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.common.running.RunningStats;
-import org.apache.rocketmq.store.ConsumeQueue;
-import org.apache.rocketmq.store.ConsumeQueueExt;
-import org.apache.rocketmq.store.DefaultMessageStore;
-import org.apache.rocketmq.store.MessageExtBrokerInner;
-import org.apache.rocketmq.store.PutMessageResult;
-import org.apache.rocketmq.store.PutMessageStatus;
-import org.apache.rocketmq.store.SelectMappedBufferResult;
+import org.apache.rocketmq.logging.InternalLogger;
+import org.apache.rocketmq.logging.InternalLoggerFactory;
+import org.apache.rocketmq.store.*;
 import org.apache.rocketmq.store.config.StorePathConfigHelper;
+
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * 定时从延迟队列获取消息进行处理
@@ -246,6 +237,7 @@ public class ScheduleMessageService extends ConfigManager {
         }
 
         /**
+         * 因为发送级别对应的发送间隔可以调整，如果超过当前间隔，则修正成当前配置，避免后面的消息无法发送。
          * @return
          */
         private long correctDeliverTimestamp(final long now, final long deliverTimestamp) {
@@ -292,16 +284,16 @@ public class ScheduleMessageService extends ConfigManager {
                             }
 
                             long now = System.currentTimeMillis();
-                            long deliverTimestamp = this.correctDeliverTimestamp(now, tagsCode);
+                            long deliverTimestamp = this.correctDeliverTimestamp(now, tagsCode);// 计算延时到期的时间
 
                             nextOffset = offset + (i / ConsumeQueue.CQ_STORE_UNIT_SIZE);
 
                             long countdown = deliverTimestamp - now;
 
-                            if (countdown <= 0) {
+                            if (countdown <= 0) {// 消息到达可发送时间
                                 MessageExt msgExt =
                                     ScheduleMessageService.this.defaultMessageStore.lookMessageByOffset(
-                                        offsetPy, sizePy);
+                                        offsetPy, sizePy);// 因为cq可以看成是一个索引，取到cq，通过offsetPy和sizePy取获取真实的消息
 
                                 if (msgExt != null) {
                                     try {
@@ -313,14 +305,16 @@ public class ScheduleMessageService extends ConfigManager {
                                         if (putMessageResult != null
                                             && putMessageResult.getPutMessageStatus() == PutMessageStatus.PUT_OK) {
                                             continue;
-                                        } else {
+                                        } else {// 发送失败
                                             // XXX: warn and notify me
                                             log.error(
                                                 "ScheduleMessageService, a message time up, but reput it failed, topic: {} msgId {}",
                                                 msgExt.getTopic(), msgExt.getMsgId());
+                                            // 安排下一次任务
                                             ScheduleMessageService.this.timer.schedule(
                                                 new DeliverDelayedMessageTimerTask(this.delayLevel,
                                                     nextOffset), DELAY_FOR_A_PERIOD);
+                                            // 更新进度
                                             ScheduleMessageService.this.updateOffset(this.delayLevel,
                                                 nextOffset);
                                             return;
@@ -339,9 +333,11 @@ public class ScheduleMessageService extends ConfigManager {
                                     }
                                 }
                             } else {
+                                // 安排下一次任务，countdown时间`
                                 ScheduleMessageService.this.timer.schedule(
                                     new DeliverDelayedMessageTimerTask(this.delayLevel, nextOffset),
                                     countdown);
+                                // 更新进度
                                 ScheduleMessageService.this.updateOffset(this.delayLevel, nextOffset);
                                 return;
                             }
@@ -357,7 +353,7 @@ public class ScheduleMessageService extends ConfigManager {
                         bufferCQ.release();
                     }
                 } // end of if (bufferCQ != null)
-                else {
+                else {// 消费队列已经被删除部分，跳转到最小的消费进度
 
                     long cqMinOffset = cq.getMinOffsetInQueue();
                     if (offset < cqMinOffset) {

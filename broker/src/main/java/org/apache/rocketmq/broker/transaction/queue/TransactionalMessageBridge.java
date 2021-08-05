@@ -263,12 +263,12 @@ public class TransactionalMessageBridge {
         MessageAccessor.putProperty(msgInner, MessageConst.PROPERTY_REAL_QUEUE_ID,
             String.valueOf(msgInner.getQueueId()));
 
-        //
+        //构建消息SysFlag，用于更新consumeQueue. dispatch方法更新会忽略TRANSACTION_PREPARED_TYPE，TRANSACTION_ROLLBACK_TYPE
         msgInner.setSysFlag(
             MessageSysFlag.resetTransactionValue(msgInner.getSysFlag(), MessageSysFlag.TRANSACTION_NOT_TYPE));
         //放入到了buildHalfTopic这个队列里
         msgInner.setTopic(TransactionalMessageUtil.buildHalfTopic());
-        //队列id为0
+        //queueId=0 队列id为0
         msgInner.setQueueId(0);
         //设置原来的属性
         msgInner.setPropertiesString(MessageDecoder.messageProperties2String(msgInner.getProperties()));
@@ -414,7 +414,7 @@ public class TransactionalMessageBridge {
         if (opQueueMap.containsKey(mq)) {
             opQueue = opQueueMap.get(mq);
         } else {
-            //通过原来的队列获取optipic
+            //通过原来的队列获取optopic
             opQueue = getOpQueueByHalf(mq);
             MessageQueue oldQueue = opQueueMap.putIfAbsent(mq, opQueue);
             if (oldQueue != null) {

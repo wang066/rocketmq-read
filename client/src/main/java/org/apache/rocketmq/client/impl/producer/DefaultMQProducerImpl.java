@@ -1501,10 +1501,11 @@ public class DefaultMQProducerImpl implements MQProducerInner {
             default:
                 break;
         }
-// 到这一步，如果前面的都成功了，LocalTransactionState 应该是COMMIT_MESSAGE, 否则应该是 ROLLBACK_MESSAGE 或 UNKNOWN
+        // 到这一步，如果前面的都成功了，LocalTransactionState 应该是COMMIT_MESSAGE, 否则应该是 ROLLBACK_MESSAGE 或 UNKNOWN
 
         try {
             // 第三阶段，会根据 LocalTransactionState 的值，发送不同类型的请求给 broker 去确认第一阶段发的消息。
+            //本地事务执行完了，发送消息
             this.endTransaction(sendResult, localTransactionState, localException);
         } catch (Exception e) {
             log.warn("local transaction execute " + localTransactionState + ", but end broker transaction failed", e);

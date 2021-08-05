@@ -191,7 +191,7 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
                 MessageQueue opQueue = getOpQueue(messageQueue);
                 //halfMessageOffset
                 long halfOffset = transactionalMessageBridge.fetchConsumeOffset(messageQueue);
-                //opOffset
+                //opOffset 获取op队列已经删除消费队列的偏移量
                 long opOffset = transactionalMessageBridge.fetchConsumeOffset(opQueue);
                 //任意一个消费队列小于0，就跳过，处理下一个
                 log.info("Before check, the queue={} msgOffset={} opOffset={}", messageQueue, halfOffset, opOffset);
@@ -203,7 +203,7 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
 
                 List<Long> doneOpOffset = new ArrayList<>();
                 HashMap<Long, Long> removeMap = new HashMap<>();
-
+                // 确认消息是否删除
                 PullResult pullResult = fillOpRemoveMap(removeMap, opQueue, opOffset, halfOffset, doneOpOffset);
                 if (null == pullResult) {
                     log.error("The queue={} check msgOffset={} with opOffset={} failed, pullResult is null",
@@ -231,8 +231,8 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
                         if (msgExt == null) {
                             /*
                              *1、如果超过重试次数，直接跳出，结束该消息队列的事务状态回查。
-                              2、如果是由于没有新的消息而返回为空（拉取状态为：PullStatus.NO_NEW_MSG），则结束该消息队列的事务状态回查。
-                              3、其他原因，则将偏移量i设置为： getResult.getPullResult().getNextBeginOffset()，重新拉取。
+                              2、如果是由于没有新的消息而返回为空（拉取状态为：PullStatus.NO_NEW_MSG），则结束该消息队列的事务状态回查。
+                              3、其他原因，则将偏移量i设置为： getResult.getPullResult().getNextBeginOffset()，重新拉取。
                              */
                             if (getMessageNullCount++ > MAX_RETRY_COUNT_WHEN_HALF_NULL) {
                                 break;
@@ -251,6 +251,8 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
                         }
 
                         //判断该消息是否需要discard(吞没，丢弃，不处理)、或skip(跳过)
+                        // 如果超过存储时间needSkip（默认3天）或者 超过回查次数needDiscard（默认15次）
+                        // 继续往后执行
                         if (needDiscard(msgExt, transactionCheckMax) || needSkip(msgExt)) {
                             listener.resolveDiscardMsg(msgExt);
                             newOffset = i + 1;
@@ -312,10 +314,12 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
                     newOffset = i + 1;
                     i++;
                 }
+                //保存prepare消息队列的回查消费进度
                 if (newOffset != halfOffset) {
                     transactionalMessageBridge.updateConsumeOffset(messageQueue, newOffset);
                 }
                 long newOpOffset = calculateOpOffset(doneOpOffset, opOffset);
+                //保存OP消费进度
                 if (newOpOffset != opOffset) {
                     transactionalMessageBridge.updateConsumeOffset(opQueue, newOpOffset);
                 }
@@ -351,7 +355,7 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
      * 主题填充removeMap、doneOpOffset数据结构
      * 避免重复调用事务回查
      * @param removeMap Half message to be remove, key:halfOffset, value: opOffset.
-     * @param opQueue Op message queue.
+     * @param opQueue Op message queue. opQueue队列中的消息均为已经删除的半消息，需要检查下是否已经删除了，当时半消息队列还没有更新。
      * @param pullOffsetOfOp The begin offset of op message queue.
      * @param miniOffset The current minimum offset of half message queue.
      * @param doneOpOffset Stored op messages that have been processed.
@@ -385,6 +389,7 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
         //遍历消息
         for (MessageExt opMessageExt : opMsg) {
             //消息body是以前prepare的队列偏移量
+            //miniOffset为半消息消费队列中的最大偏移量；queueOffset为删除消费队列的消息偏移量；通过比较两者来确定是否已经删除了，而半消息状态还没有更新，并将这类消息存储在removeMap中。
             Long queueOffset = getLong(new String(opMessageExt.getBody(), TransactionalMessageUtil.charset));
             log.info("Topic: {} tags: {}, OpOffset: {}, HalfOffset: {}", opMessageExt.getTopic(),
                 opMessageExt.getTags(), opMessageExt.getQueueOffset(), queueOffset);
@@ -392,6 +397,7 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
                 if (queueOffset < miniOffset) {
                     doneOpOffset.add(opMessageExt.getQueueOffset());
                 } else {
+                    // 说明半消息已经删除过了，但是半消息还没有更新，将半消息存放在removeMap中。
                     //已经处理过了。添加到移除队列
                     removeMap.put(queueOffset, opMessageExt.getQueueOffset());
                 }
@@ -578,6 +584,9 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
 
     /**
      * 删除prepareMessage
+     * 删除half消息（并非从磁盘中删除）
+     * 构建一个消息放入RMQ_SYS_TRNAS_OP_HALF_TOPIC queueId 为对应half消息的queueId
+     * 消息内容是对应的half消息的偏移量offset 讲tag设置为d
      * @param msgExt 消息
      * @return ;
      */
