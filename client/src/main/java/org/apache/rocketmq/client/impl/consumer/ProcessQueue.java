@@ -148,6 +148,7 @@ public class ProcessQueue {
                 this.lockTreeMap.readLock().lockInterruptibly();
                 try {
                     if (!msgTreeMap.isEmpty() && System.currentTimeMillis() - Long.parseLong(MessageAccessor.getConsumeStartTimeStamp(msgTreeMap.firstEntry().getValue())) > pushConsumer.getConsumeTimeout() * 60 * 1000) {
+                        //拿第一条消息，偏移量其实就是落库时间
                         msg = msgTreeMap.firstEntry().getValue();
                     } else {
 
