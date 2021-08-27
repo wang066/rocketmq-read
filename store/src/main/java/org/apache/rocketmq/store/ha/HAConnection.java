@@ -16,17 +16,18 @@
  */
 package org.apache.rocketmq.store.ha;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.SocketChannel;
 import org.apache.rocketmq.common.ServiceThread;
 import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.remoting.common.RemotingUtil;
 import org.apache.rocketmq.store.SelectMappedBufferResult;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.SocketChannel;
 
 public class HAConnection {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
@@ -78,6 +79,7 @@ public class HAConnection {
         return socketChannel;
     }
 
+    //读服务功能 1.发送心跳包给Master 2.上报Slave的进度
     class ReadSocketService extends ServiceThread {
         private static final int READ_MAX_BUFFER_SIZE = 1024 * 1024;
         private final Selector selector;
@@ -159,20 +161,28 @@ public class HAConnection {
                     if (readSize > 0) {
                         readSizeZeroTimes = 0;
                         this.lastReadTimestamp = HAConnection.this.haService.getDefaultMessageStore().getSystemClock().now();
+                        //超过8个字节处理，因为slave broker 发送的一个包就是8字节的slave offset心跳包
                         if ((this.byteBufferRead.position() - this.processPostion) >= 8) {
+                            //获取离byteBuffer最近的8的整除数。
                             int pos = this.byteBufferRead.position() - (this.byteBufferRead.position() % 8);
+                            //读取能读到的最后一个有效8字节
                             long readOffset = this.byteBufferRead.getLong(pos - 8);
                             this.processPostion = pos;
 
+                            // 更新SlaveBroker反馈的已领取完成的数据偏移量
                             HAConnection.this.slaveAckOffset = readOffset;
+                            // 如果是首次获取Slave的ack偏移量
                             if (HAConnection.this.slaveRequestOffset < 0) {
+                                //将Slave Broker的请求拉取数据的偏移量也更新为该值
                                 HAConnection.this.slaveRequestOffset = readOffset;
                                 log.info("slave[" + HAConnection.this.clientAddr + "] request offset " + readOffset);
                             }
 
+                            //通知slaveAckOffset更新
                             HAConnection.this.haService.notifyTransferSome(HAConnection.this.slaveAckOffset);
                         }
                     } else if (readSize == 0) {
+                        //连续三次则跳出循环
                         if (++readSizeZeroTimes >= 3) {
                             break;
                         }
@@ -190,6 +200,7 @@ public class HAConnection {
         }
     }
 
+    //写服务功能 1.发送心跳包到Slave 2.发送commitLog
     class WriteSocketService extends ServiceThread {
         private final Selector selector;
         private final SocketChannel socketChannel;
@@ -216,6 +227,7 @@ public class HAConnection {
                 try {
                     this.selector.select(1000);
 
+                    //如果slaveRequestOffset=-1说明还没收到消息，放弃本次事件处理
                     if (-1 == HAConnection.this.slaveRequestOffset) {
                         Thread.sleep(10);
                         continue;
@@ -267,10 +279,13 @@ public class HAConnection {
                             continue;
                     }
 
+                    //获取从nextTransferFromWhere开始的commitLog数据
                     SelectMappedBufferResult selectResult =
                         HAConnection.this.haService.getDefaultMessageStore().getCommitLogData(this.nextTransferFromWhere);
                     if (selectResult != null) {
                         int size = selectResult.getSize();
+
+                        //如果数据超过getHaTransferBatchSize=32k,则最多传输32k
                         if (size > HAConnection.this.haService.getDefaultMessageStore().getMessageStoreConfig().getHaTransferBatchSize()) {
                             size = HAConnection.this.haService.getDefaultMessageStore().getMessageStoreConfig().getHaTransferBatchSize();
                         }
@@ -278,6 +293,7 @@ public class HAConnection {
                         long thisOffset = this.nextTransferFromWhere;
                         this.nextTransferFromWhere += size;
 
+                        //截断
                         selectResult.getByteBuffer().limit(size);
                         this.selectMappedBufferResult = selectResult;
 

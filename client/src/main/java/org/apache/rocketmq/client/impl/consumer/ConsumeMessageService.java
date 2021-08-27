@@ -16,13 +16,15 @@
  */
 package org.apache.rocketmq.client.impl.consumer;
 
-import java.util.List;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.common.protocol.body.ConsumeMessageDirectlyResult;
 
+import java.util.List;
+
 /**
  * 消费Message的接口
+ * ConsumerMessageService模块可以理解为消息消费步骤的执行者。
  * @author ;
  */
 public interface ConsumeMessageService {

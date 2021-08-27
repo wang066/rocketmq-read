@@ -26,6 +26,7 @@ import java.util.concurrent.*;
 
 /**
  * 拉取消息的线程
+ *  PullMessageService模块可以理解为消息拉取的驱动器，采用了任务队列和生产者-消费者模式将消息拉取请求和消息拉取执行过程异步解耦。其中包含了两个组件：消息拉取任务队列（pullRequestQueue），消息拉取线程
  * @author ;
  */
 public class PullMessageService extends ServiceThread {

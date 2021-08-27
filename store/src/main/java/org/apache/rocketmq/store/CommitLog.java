@@ -790,14 +790,19 @@ public class CommitLog {
     }
 
     public void handleHA(AppendMessageResult result, PutMessageResult putMessageResult, MessageExt messageExt) {
+        //主从同步，主节点
         if (BrokerRole.SYNC_MASTER == this.defaultMessageStore.getMessageStoreConfig().getBrokerRole()) {
             HAService service = this.defaultMessageStore.getHaService();
             if (messageExt.isWaitStoreMsgOK()) {
                 // Determine whether to wait
+                //如果主从之间offset差距过大，则不进行同步
                 if (service.isSlaveOK(result.getWroteOffset() + result.getWroteBytes())) {
+                    //组装request
                     GroupCommitRequest request = new GroupCommitRequest(result.getWroteOffset() + result.getWroteBytes());
                     service.putRequest(request);
+                    //唤醒writeSocketService,等待commitLog追加
                     service.getWaitNotifyObject().wakeupAll();
+                    //线程在request上等待
                     boolean flushOK =
                         request.waitForFlush(this.defaultMessageStore.getMessageStoreConfig().getSyncFlushTimeout());
                     if (!flushOK) {

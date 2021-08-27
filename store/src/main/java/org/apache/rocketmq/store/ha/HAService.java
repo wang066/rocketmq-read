@@ -16,22 +16,6 @@
  */
 package org.apache.rocketmq.store.ha;
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-import java.nio.ByteBuffer;
-import java.nio.channels.ClosedChannelException;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.rocketmq.common.ServiceThread;
 import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.logging.InternalLogger;
@@ -39,6 +23,19 @@ import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.remoting.common.RemotingUtil;
 import org.apache.rocketmq.store.CommitLog;
 import org.apache.rocketmq.store.DefaultMessageStore;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.*;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class HAService {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
@@ -86,9 +83,11 @@ public class HAService {
     }
 
     public void notifyTransferSome(final long offset) {
+        //原子更新push2SlaveMaxOffset的值
         for (long value = this.push2SlaveMaxOffset.get(); offset > value; ) {
             boolean ok = this.push2SlaveMaxOffset.compareAndSet(value, offset);
             if (ok) {
+                //唤醒groupTransferService服务线程
                 this.groupTransferService.notifyTransferSome();
                 break;
             } else {
@@ -155,6 +154,7 @@ public class HAService {
 
     /**
      * Listens to slave connections to create {@link HAConnection}.
+     * Master监听Socket
      */
     class AcceptSocketService extends ServiceThread {
         private final SocketAddress socketAddressListen;
@@ -195,6 +195,7 @@ public class HAService {
 
         /**
          * {@inheritDoc}
+         * 创建HAConnection 去监听Slave的连接
          */
         @Override
         public void run() {

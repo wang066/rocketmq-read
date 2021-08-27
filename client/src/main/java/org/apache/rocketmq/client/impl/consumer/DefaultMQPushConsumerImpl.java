@@ -67,6 +67,7 @@ import java.util.concurrent.ConcurrentMap;
 
 /**
  * 默认的以Push为消费的方式的实现
+ *  PushConsumer模块可以理解为整个消息消费流程（包括消息拉取步骤和消息消费步骤）的协调者。
  * @author ;
  */
 public class DefaultMQPushConsumerImpl implements MQConsumerInner {

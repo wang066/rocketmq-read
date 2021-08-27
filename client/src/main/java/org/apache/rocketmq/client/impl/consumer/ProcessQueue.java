@@ -58,7 +58,7 @@ public class ProcessQueue {
     private final ReadWriteLock lockTreeMap = new ReentrantReadWriteLock();
     /**
      * 数据集
-     * 键为消息在 onsumeQueue中的偏移量 MessageExt ：消息实体
+     * 键为消息在 ConsumeQueue中的偏移量 MessageExt ：消息实体
      */
     private final TreeMap<Long, MessageExt> msgTreeMap = new TreeMap<Long, MessageExt>();
     /**
@@ -269,6 +269,7 @@ public class ProcessQueue {
                 if (!msgTreeMap.isEmpty()) {
                     result = this.queueOffsetMax + 1;
                     int removedCnt = 0;
+                    // 移除已消费的消息
                     for (MessageExt msg : msgs) {
                         MessageExt prev = msgTreeMap.remove(msg.getQueueOffset());
                         if (prev != null) {
