@@ -16,11 +16,6 @@
  */
 package org.apache.rocketmq.broker.longpolling;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import org.apache.rocketmq.broker.BrokerController;
 import org.apache.rocketmq.common.ServiceThread;
 import org.apache.rocketmq.common.SystemClock;
@@ -28,6 +23,12 @@ import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.store.ConsumeQueueExt;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * 长轮询的连接保持器
@@ -182,7 +183,7 @@ public class PullRequestHoldService extends ServiceThread {
                             continue;
                         }
                     }
-
+                    // 如果超过了长轮询时间 直接去拉取消息 拉取不到也返回
                     if (System.currentTimeMillis() >= (request.getSuspendTimestamp() + request.getTimeoutMillis())) {
                         try {
                             this.brokerController.getPullMessageProcessor().executeRequestWhenWakeup(request.getClientChannel(),
@@ -195,7 +196,7 @@ public class PullRequestHoldService extends ServiceThread {
 
                     replayList.add(request);
                 }
-
+                //这边将拉取不到的消息重新放入pullRequestTable 等待下次调度
                 if (!replayList.isEmpty()) {
                     mpr.addPullRequest(replayList);
                 }
