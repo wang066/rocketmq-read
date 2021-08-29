@@ -71,7 +71,7 @@ public class TransactionalMessageCheckService extends ServiceThread {
         }
         log.info("End transaction check service thread!");
     }
-
+    //事务回查操作周期默认为60s一次，每次执行的超时时间为5秒；最大回查次数为15次，超过最大回查次数则丢弃消息，相当有对事务进行了回滚。
     @Override
     protected void onWaitEnd() {
         //事物回查超时时间

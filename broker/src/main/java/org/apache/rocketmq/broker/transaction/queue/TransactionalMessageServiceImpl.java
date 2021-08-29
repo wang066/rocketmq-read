@@ -177,6 +177,7 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
         try {
             String topic = MixAll.RMQ_SYS_TRANS_HALF_TOPIC;
             //根据halfMessage的topic获取Message的Queue
+            // 上述逻辑首先获取了RMQ_SYS_TRANS_HALF_TOPIC半消息中的所有队列。
             Set<MessageQueue> msgQueues = transactionalMessageBridge.fetchMessageQueues(topic);
             if (msgQueues == null || msgQueues.size() == 0) {
                 log.warn("The queue of topic is empty :" + topic);
@@ -190,8 +191,10 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
 
                 MessageQueue opQueue = getOpQueue(messageQueue);
                 //halfMessageOffset
+                // 获取半消息队列的消费偏移量
                 long halfOffset = transactionalMessageBridge.fetchConsumeOffset(messageQueue);
                 //opOffset 获取op队列已经删除消费队列的偏移量
+                // 获取op队列已经删除消费队列的偏移量
                 long opOffset = transactionalMessageBridge.fetchConsumeOffset(opQueue);
                 //任意一个消费队列小于0，就跳过，处理下一个
                 log.info("Before check, the queue={} msgOffset={} opOffset={}", messageQueue, halfOffset, opOffset);
@@ -394,6 +397,7 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
             log.info("Topic: {} tags: {}, OpOffset: {}, HalfOffset: {}", opMessageExt.getTopic(),
                 opMessageExt.getTags(), opMessageExt.getQueueOffset(), queueOffset);
             if (TransactionalMessageUtil.REMOVETAG.equals(opMessageExt.getTags())) {
+                // 比较半消息消费队列中的最大偏移量miniOffset 与 删除消费队列的消息偏移量queueOffset；
                 if (queueOffset < miniOffset) {
                     doneOpOffset.add(opMessageExt.getQueueOffset());
                 } else {
