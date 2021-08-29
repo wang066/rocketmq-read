@@ -17,24 +17,11 @@
 package org.apache.rocketmq.namesrv.routeinfo;
 
 import io.netty.channel.Channel;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.rocketmq.common.DataVersion;
 import org.apache.rocketmq.common.MixAll;
 import org.apache.rocketmq.common.TopicConfig;
 import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.common.constant.PermName;
-import org.apache.rocketmq.logging.InternalLogger;
-import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.common.namesrv.RegisterBrokerResult;
 import org.apache.rocketmq.common.protocol.body.ClusterInfo;
 import org.apache.rocketmq.common.protocol.body.TopicConfigSerializeWrapper;
@@ -43,7 +30,15 @@ import org.apache.rocketmq.common.protocol.route.BrokerData;
 import org.apache.rocketmq.common.protocol.route.QueueData;
 import org.apache.rocketmq.common.protocol.route.TopicRouteData;
 import org.apache.rocketmq.common.sysflag.TopicSysFlag;
+import org.apache.rocketmq.logging.InternalLogger;
+import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.remoting.common.RemotingUtil;
+
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * 路由管理器
@@ -55,18 +50,66 @@ public class RouteInfoManager {
      */
     private final static long BROKER_CHANNEL_EXPIRED_TIME = 1000 * 60 * 2;
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    /*
+    {
+	"RMQ_SYS_TRANS_HALF_TOPIC": [{
+		"brokerName": "broker-a",
+		"perm": 6,
+		"readQueueNums": 1,
+		"topicSynFlag": 0,
+		"writeQueueNums": 1
+	}],
+    }
+     */
     /**
      * 保存的是topic的队列信息，key topic
      */
     private final HashMap<String,List<QueueData>> topicQueueTable;
+    /*
+     {
+     "broker-a": {
+     "brokerAddrs": {
+     0: "192.168.0.8:10911"
+     },
+     "brokerName": "broker-a",
+     "cluster": "DefaultCluster"
+     }
+     }
+     */
     /**
      * 保持的是BrokerName对应的Broker的信息
      */
     private final HashMap<String,BrokerData> brokerAddrTable;
+    /*
+    {
+	"DefaultCluster": ["broker-a"]
+    }
+     */
     /**
      * 保持的是clusterName 集群下所有的BrokerName
      */
     private final HashMap<String, Set<String>> clusterAddrTable;
+    /*
+    {
+	"192.168.0.8:10911": {
+		"channel": {
+			"active": false,
+			"inputShutdown": false,
+			"open": false,
+			"outputShutdown": true,
+			"registered": false,
+			"writable": false
+		},
+		"dataVersion": {
+			"counter": 1,
+			"timestamp": 1588318700534
+		},
+		"haServerAddr": "192.168.0.8:10912",
+		"lastUpdateTimestamp": 1588323761374
+	}
+    }
+
+     */
     /**
      * 保持的是BrokerAddr地址对应的存活的broker信息
      */
