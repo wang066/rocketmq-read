@@ -1030,10 +1030,10 @@ public class CommitLog {
     }
 
     /**
-     * 刷盘服务
+     * 异步刷盘服务&&临时存储 性能最好
      */
     class CommitRealTimeService extends FlushCommitLogService {
-
+        // 最后一次刷盘时间戳
         private long lastCommitTimestamp = 0;
 
         @Override
@@ -1046,13 +1046,14 @@ public class CommitLog {
             CommitLog.log.info(this.getServiceName() + " service started");
             while (!this.isStopped()) {
                 int interval = CommitLog.this.defaultMessageStore.getMessageStoreConfig().getCommitIntervalCommitLog();
-
+                // 每次刷盘至少需要多少个page(默认是4个)
                 int commitDataLeastPages = CommitLog.this.defaultMessageStore.getMessageStoreConfig().getCommitCommitLogLeastPages();
 
                 int commitDataThoroughInterval =
                     CommitLog.this.defaultMessageStore.getMessageStoreConfig().getCommitCommitLogThoroughInterval();
 
                 long begin = System.currentTimeMillis();
+                // 当前时间 >（最后一次刷盘时间 + 彻底刷盘间隔时间（10s）），则将最新一次刷盘时间更新为当前时间
                 if (begin >= (this.lastCommitTimestamp + commitDataThoroughInterval)) {
                     this.lastCommitTimestamp = begin;
                     commitDataLeastPages = 0;
@@ -1086,7 +1087,7 @@ public class CommitLog {
     }
 
     /**
-     * 异步刷盘线程
+     * 异步刷盘线程 异步刷盘 性能中等
      * @author ;
      */
     class FlushRealTimeService extends FlushCommitLogService {
@@ -1130,6 +1131,7 @@ public class CommitLog {
                     }
 
                     long begin = System.currentTimeMillis();
+                    //刷盘
                     CommitLog.this.mappedFileQueue.flush(flushPhysicQueueLeastPages);
                     long storeTimestamp = CommitLog.this.mappedFileQueue.getStoreTimestamp();
                     if (storeTimestamp > 0) {
@@ -1211,7 +1213,7 @@ public class CommitLog {
 
     /**
      * GroupCommit Service
-     * 同步刷盘定时线程
+     * 同步刷盘定时线程 同步刷盘 性能最差
      */
     class GroupCommitService extends FlushCommitLogService {
         //同步刷盘任务暂存容器
@@ -1236,6 +1238,7 @@ public class CommitLog {
 
         private void doCommit() {
             synchronized (this.requestsRead) {
+                // 读队列不为空，遍历所有刷盘请求，执行数据刷盘操作
                 if (!this.requestsRead.isEmpty()) {
                     for (GroupCommitRequest req : this.requestsRead) {
                         // There may be a message in the next file, so a maximum of
@@ -1251,12 +1254,12 @@ public class CommitLog {
 
                         req.wakeupCustomer(flushOK);
                     }
-
+                    // 设置检查点
                     long storeTimestamp = CommitLog.this.mappedFileQueue.getStoreTimestamp();
                     if (storeTimestamp > 0) {
                         CommitLog.this.defaultMessageStore.getStoreCheckpoint().setPhysicMsgTimestamp(storeTimestamp);
                     }
-
+                    // 处理完刷盘请求以后，执行队列清空操作
                     this.requestsRead.clear();
                 } else {
                     // Because of individual messages is set to not sync flush, it
@@ -1272,7 +1275,9 @@ public class CommitLog {
 
             while (!this.isStopped()) {
                 try {
+                    // 每隔10ms，交换读写队列
                     this.waitForRunning(10);
+                    // 真正的刷盘
                     this.doCommit();
                 } catch (Exception e) {
                     CommitLog.log.warn(this.getServiceName() + " service has exception. ", e);

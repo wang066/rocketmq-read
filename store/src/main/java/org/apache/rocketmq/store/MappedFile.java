@@ -721,6 +721,8 @@ public class MappedFile extends ReferenceResource {
         this.committedPosition.set(pos);
     }
 
+    //Page Cache 叫做页缓存，而每一页的大小通常是4K，在Linux系统中写入数据的时候并不会直接写到硬盘上，而是会先写到Page Cache中，并打上dirty标识，由内核线程flusher定期将被打上dirty的页发送给IO调度层，最后由IO调度决定何时落地到磁盘中，而Linux一般会把还没有使用的内存全拿来给Page Cache使用。而读的过程也是类似，会先到Page Cache中寻找是否有数据，有的话直接返回，如果没有才会到磁盘中去读取并写入Page Cache然后再次读取Page Cache并返回。而且读的这个过程中操作系统也会有一个预读的操作，你的每一次读取操作系统都会帮你预读出后面一部分数据，而且当你一直在使用预读数据的时候，系统会帮你预读出更多的数据(最大到128K)。
+    // mmap是一种将文件映射到虚拟内存的技术，可以将文件在磁盘位置的地址和在虚拟内存中的虚拟地址通过映射对应起来，之后就可以在内存这块区域进行读写数据，而不必调用系统级别的read,wirte这些函数，从而提升IO操作性能，另外一点就是mmap后的虚拟内存大小必须是内存页大小(通常是4K)的倍数，之所以这么做是为了匹配内存操作。
     /**
      * 预热，这里预热的主要目的是在mmap之后无物理内存建立map关联关系。减少缺页
      * @param type 刷盘类型
@@ -741,7 +743,7 @@ public class MappedFile extends ReferenceResource {
             byteBuffer.put(i, (byte) 0);
             /*
              * force flush when flush disk type is sync
-             * 同步刷盘
+             * 如果是同步写盘操作，则进行强行刷盘操作
              */
             if (type == FlushDiskType.SYNC_FLUSH) {
                 if ((i / OS_PAGE_SIZE) - (flush / OS_PAGE_SIZE) >= pages) {
