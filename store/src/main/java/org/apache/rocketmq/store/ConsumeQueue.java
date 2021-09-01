@@ -26,7 +26,10 @@ import java.nio.ByteBuffer;
 import java.util.List;
 
 /**
+ tagsCode：消息Tag的HashCode值。主要用于订阅时消息过滤（订阅时如果指定了Tag，会根据HashCode来快速查找到订阅的消息）。
+ 30w数据,文件大小约5.72M
  * topic/queue/file三层组织结构，每个topic下的每个queue都有一个对应的consumeQueue文件
+ *
  * 具体存储路径为：$HOME/store/consumequeue/{topic}/{queueId}/{fileName}
  * 消费队列
  * @author ;
@@ -71,6 +74,7 @@ public class ConsumeQueue {
     private final int mappedFileSize;
     /**
      * 最大的物理偏移量
+     * maxPhysicOffset记录了上一次ConsumeQueue更新的消息在CommitLog中的偏移量，如果本次消息偏移量小于maxPhysicOffset，则表明消息已经被更新过，直接返回。
      */
     private long maxPhysicOffset = -1;
     /**
@@ -544,6 +548,7 @@ public class ConsumeQueue {
 
         this.byteBufferIndex.flip();
         this.byteBufferIndex.limit(CQ_STORE_UNIT_SIZE);
+        //consumeQueue的格式 commitLogOffset size tagHashCode
         this.byteBufferIndex.putLong(offset);
         this.byteBufferIndex.putInt(size);
         this.byteBufferIndex.putLong(tagsCode);

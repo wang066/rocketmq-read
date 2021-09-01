@@ -93,7 +93,7 @@ public class MappedFile extends ReferenceResource {
     /**
      * TransientStorePool瞬时存储池 堆内存池transactionStorePoolEnable=true启用
      * 根据是否开启 transientStorePoo!Enable 存在两种初始化情况 。 transientStorePoolEnable
-     * 为 true 表示内容先存储在堆外内存，然后通过 Commit 线程将数据提交到内存映射 uffer
+     * 为 true 表示内容先存储在堆外内存，然后通过 Commit 线程将数据提交到内存映射 Buffer
      * 中，再通过 Flush 线程将内存映射 Buffer 中的数据持久化到磁盘中 。
      */
     protected TransientStorePool transientStorePool = null;

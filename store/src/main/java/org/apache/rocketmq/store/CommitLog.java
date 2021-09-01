@@ -37,6 +37,34 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
+ 1	totalSize(4Byte)	消息大小
+ 2	magicCode(4)	设置为daa320a7
+ 3	bodyCRC(4)	当broker重启recover时会校验
+ 4	queueId(4)	消息对应的consumeQueueId
+ 5	flag(4)	rocketmq不做处理，只存储后透传
+ 6	queueOffset(8)	消息在consumeQueue中的偏移量
+ 7	physicalOffset(8)	消息在commitlog中的偏移量
+ 8	sysFlg(4)	事务标示，NOT_TYPE/PREPARED_TYPE/COMMIT_TYPE/ROLLBACK_TYPE
+ 9	bronTimestamp(8)	消息产生端(producer)的时间戳
+ 10	bronHost(8)	消息产生端(producer)地址(address:port)
+ 11	storeTimestamp(8)	消息在broker存储时间
+ 12	storeHostAddress(8)	消息存储到broker的地址(address:port)
+ 13	reconsumeTimes(4)	消息重试次数
+ 14	preparedTransactionOffset(8)	事务消息的物理偏移量
+ 15	bodyLength(4)	消息长度，最长不超过4MB
+ 16	body(body length Bytes)	消息体内容
+ 17	topicLength(1)	主题长度，最长不超过255Byte
+ 18	topic(topic length Bytes)	主题内容
+ 19	propertiesLength(2)	消息属性长度，最长不超过65535Bytes
+ 20	properties(properties length Bytes)	消息属性内容
+
+ 1G固定大小，通过mlock 去锁定内存
+
+ 接下来就可以对这个已经映射到内存里的磁盘文件进行读写操作了，比如要写入消息到CommitLog文件，你先把一个CommitLog文件通过MappedByteBuffer的map()函数映射其地址到你的虚拟内存地址。
+
+ 接着就可以对这个MappedByteBuffer执行写入操作了，写入的时候他会直接进入PageCache中，然后过一段时间之后，由os的线程异步刷入磁盘中，如下图我们可以看到这个示意。
+
+ pagecache
  * Store all metadata downtime for recovery, data protection reliability
  * CommitLog的存储物理结构
  * @author ;

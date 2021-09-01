@@ -29,6 +29,8 @@ import java.nio.channels.FileLock;
 import java.util.List;
 
 /**
+ * IndexFile在解决hash冲突的过程中会采用头插法，即所有的冲突数据都往链表的头部进行插入，然后每个新添加的元素都会包含后一个元素的位置，hash对应的slot Table会指向第一个索引元素。在实际元素存储的数据的顺序和查询的顺序是逆向映射的，这点需要理解。
+ * 500w Slot Table（每个4字节）,2000w Index Linked LIst 每个20字节(KeyHash (4byte),Commit Log Offset (8byte),TimeStamp(4byte),Next Index Offset (4byte)) 400M
  * 索引文件
  * @author ;
  */
