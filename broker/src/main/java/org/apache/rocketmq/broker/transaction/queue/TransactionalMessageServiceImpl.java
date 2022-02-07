@@ -205,8 +205,13 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
                 }
 
                 List<Long> doneOpOffset = new ArrayList<>();
+                //key:half队列的offset value: op 队列的offset
                 HashMap<Long, Long> removeMap = new HashMap<>();
                 // 确认消息是否删除
+                // fillOpRemoveMap 对每一个拉取到的op消息：比对消息内容（对应的half消息的逻辑队列的偏移量） 和 half队列的当前的偏移量
+                // 1.如果小于half队列当前的偏移量，说明op消息对应的half偏移量已经回查过。将op消息的逻辑队列的偏移量放入doneOpOffset。
+                // 这个doneOpOffset 只做后面推进op逻辑队列位点使用。
+                // 2.如果大于或者等于half队列的偏移量，则将 halfOffset-opOffset 存入removeMap中。当前的half消息需不需要回查就看他在不在removeMap
                 PullResult pullResult = fillOpRemoveMap(removeMap, opQueue, opOffset, halfOffset, doneOpOffset);
                 if (null == pullResult) {
                     log.error("The queue={} check msgOffset={} with opOffset={} failed, pullResult is null",
@@ -225,6 +230,7 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
                         log.info("Queue={} process time reach max={}", messageQueue, MAX_PROCESS_TIME_LIMIT);
                         break;
                     }
+                    //如果removeMap 包含当前half 的offset ,说明已经被commit 或者rollback，就不需要回查了
                     if (removeMap.containsKey(i)) {
                         log.info("Half offset {} has been committed/rolled back", i);
                         removeMap.remove(i);
@@ -301,13 +307,16 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
                         boolean isNeedCheck = (opMsg == null && valueOfCurrentMinusBorn > checkImmunityTime)
                             || (opMsg != null && (opMsg.get(opMsg.size() - 1).getBornTimestamp() - startTime > transactionTimeout))
                             || (valueOfCurrentMinusBorn <= -1);
-
+                        // 看的主要就是消息诞生的时间是否超过了 transactionTimeout。
                         if (isNeedCheck) {
                             if (!putBackHalfMsgQueue(msgExt, i)) {
                                 continue;
                             }
+                            //进行回查的地方
                             listener.resolveHalfMsg(msgExt);
                         } else {
+                            // 这里可能会加载更多的removeMap？？？ 这里是continue的
+                            //如果不能判断是否发送回查消息，则拉取更多的已处理消息进行筛选
                             pullResult = fillOpRemoveMap(removeMap, opQueue, pullResult.getNextBeginOffset(), halfOffset, doneOpOffset);
                             log.info("The miss offset:{} in messageQueue:{} need to get more opMsg, result is:{}", i,
                                 messageQueue, pullResult);
@@ -402,7 +411,7 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
                     doneOpOffset.add(opMessageExt.getQueueOffset());
                 } else {
                     // 说明半消息已经删除过了，但是半消息还没有更新，将半消息存放在removeMap中。
-                    //已经处理过了。添加到移除队列
+                    // 已经处理过了。添加到移除队列
                     removeMap.put(queueOffset, opMessageExt.getQueueOffset());
                 }
             } else {

@@ -53,7 +53,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
  * 方案依据：
  * 启用“读写”分离，消息发送时消息先追加到DirectByteBuffer(堆外内存)中，
  * 然后在异步刷盘机制下，会将DirectByteBuffer中的内容提交到PageCache，
- * 然后刷写到磁盘。消息拉取时，直接从PageCache中拉取，实现了读写分离，减轻了PageCaceh的压力，能从根本上解决该问题。
+ * 然后刷写到磁盘。消息拉取时，直接从PageCache中拉取，实现了读写分离，减轻了PageCache的压力，能从根本上解决该问题。
  * 方案缺点：
  * 会增加数据丢失的可能性，
  * 如果Broker JVM进程异常退出，
