@@ -248,7 +248,7 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
                             .addLast(defaultEventExecutorGroup,
                                 new NettyEncoder(),
                                 new NettyDecoder(),
-                                new IdleStateHandler(0, 0, nettyServerConfig.getServerChannelMaxIdleTimeSeconds()),
+                                new IdleStateHandler(0, 0, nettyServerConfig.getServerChannelMaxIdleTimeSeconds()),//nettyServerConfig.getServerChannelMaxIdleTimeSeconds() 时间内没读写就发送心跳
                                 new NettyConnectManageHandler(),
                                 new NettyServerHandler()
                             );
