@@ -146,7 +146,7 @@ public class IndexFile {
     }
 
     /**
-     * @https://blog.csdn.net/Dopamy_BusyMonkey/article/details/91348648
+     * https://blog.csdn.net/Dopamy_BusyMonkey/article/details/91348648
      *
      * Index Header：
      *
@@ -166,7 +166,7 @@ public class IndexFile {
      * timeDiff：message的落盘时间与header里的beginTimestamp的差值（为了节省存储空间，如果直接存message的落盘时间就得8bytes）
      * prevIndex：hash冲突处理的关键之处, 相同hash值上一个消息索引的index（如果当前消息索引是该hash值的第一个索引，则prevIndex=0, 也是消息索引查找时的停止条件。）每个slot位置的第一个消息的prevIndex就是0的
      *
-     *参考selectPhyOffset
+     * 参考selectPhyOffset
      * num value
      * slot 1  4  msg1{slot=0},msg1{slot=1},msg=4{slot=2}
      *
