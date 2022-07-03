@@ -108,7 +108,7 @@ public class PullAPIWrapper {
             List<MessageExt> msgList = MessageDecoder.decodes(byteBuffer);
 
             List<MessageExt> msgListFilterAgain = msgList;
-            //执行一遍客户端过滤
+            //执行一遍客户端过滤 tag的客户端过滤
             if (!subscriptionData.getTagsSet().isEmpty() && !subscriptionData.isClassFilterMode()) {
                 msgListFilterAgain = new ArrayList<MessageExt>(msgList.size());
                 for (MessageExt msg : msgList) {
