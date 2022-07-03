@@ -150,8 +150,8 @@ public class IndexFile {
      *
      * Index Header：
      *
-     * beginTimestamp：该索引文件的第一个消息(Message)的存储时间(落盘时间)  物理位置(pos: 0-7) 8bytes
-     * endTimestamp：该索引文件的最后一个消息(Message)的存储时间(落盘时间)  物理位置(pos: 8-15) 8bytes
+     * beginTimestamp：该索引文件的第一个消息(Message)的存储时间(落盘时间)  物理位置(pos: 0-7) 8bytes
+     * endTimestamp：该索引文件的最后一个消息(Message)的存储时间(落盘时间)  物理位置(pos: 8-15) 8bytes
      * beginPhyoffset：该索引文件第一个消息(Message)的在CommitLog(消息存储文件)的物理位置偏移量(可以通过该物理偏移直接获取到该消息) 物理位置(pos: 16-23) 8bytes
      * beginPhyoffset：该索引文件最后一个消息(Message)的在CommitLog(消息存储文件)的物理位置偏移量 (pos: 24-31) 8bytes
      * hashSlotCount：该索引文件目前的hash slot的个数 (pos: 32-35) 4bytes
