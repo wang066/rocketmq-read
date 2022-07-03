@@ -435,7 +435,7 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
         throws InterruptedException, RemotingConnectException, RemotingSendRequestException, RemotingTimeoutException {
 
         long beginStartTime = System.currentTimeMillis();
-        //在这里建立长连接
+        //在这里建立长连接，这里也会建立跟 nameserv 的长连接，也有跟broker的长连接
         final Channel channel = this.getAndCreateChannel(addr);
 
         if (channel != null && channel.isActive()) {
